@@ -196,7 +196,8 @@ let from = null;
 let zoomCenter = { x: 0, y: 0 };
 
 function setup() {
-  createCanvas(windowWidth, windowHeight);
+  const cnv = createCanvas(windowWidth, windowHeight);
+  setupPointer(cnv);
   textFont("Georgia");
   textAlign(CENTER, CENTER);
   layout();
@@ -4134,28 +4135,59 @@ let wantKeyboard = false;
 let touchX0 = 0;
 let touchY0 = 0;
 
-function touchStarted() {
-  touchX0 = mouseX;
-  touchY0 = mouseY;
-  mouseIsPressed = true;
-  mousePressed();
-  wantKeyboard = (typeof ta !== "undefined" && document.activeElement === ta);
-  return false;
-}
+let wantKeyboard = false;
+let ptrId = null;
+let ptrX0 = 0;
+let ptrY0 = 0;
 
-function touchMoved() {
-  if (dist(mouseX, mouseY, touchX0, touchY0) > 10) wantKeyboard = false;
-  mouseDragged();
-  return false;
-}
+function setupPointer(cnv) {
+  const el = cnv.elt;
+  el.style.touchAction = "none";
+  el.style.webkitUserSelect = "none";
+  el.style.userSelect = "none";
 
-function touchEnded() {
-  mouseIsPressed = false;
-  mouseReleased();
-  if (wantKeyboard) {
-    ta.focus();
-    ta.setSelectionRange(ta.value.length, ta.value.length);
+  function pos(e) {
+    const r = el.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
   }
-  wantKeyboard = false;
-  return false;
+
+  el.addEventListener("pointerdown", function (e) {
+    if (e.pointerType === "mouse") return;      // 마우스는 p5가 원래대로 처리
+    if (ptrId !== null) return;                 // 한 손가락만
+    e.preventDefault();
+    ptrId = e.pointerId;
+    try { el.setPointerCapture(e.pointerId); } catch (err) {}
+    const p = pos(e);
+    window.pmouseX = p.x; window.pmouseY = p.y;
+    window.mouseX = p.x;  window.mouseY = p.y;
+    ptrX0 = p.x; ptrY0 = p.y;
+    window.mouseIsPressed = true;
+    mousePressed();
+    wantKeyboard = (document.activeElement === ta);
+  }, { passive: false });
+
+  el.addEventListener("pointermove", function (e) {
+    if (e.pointerType === "mouse" || e.pointerId !== ptrId) return;
+    e.preventDefault();
+    const p = pos(e);
+    window.pmouseX = window.mouseX; window.pmouseY = window.mouseY;
+    window.mouseX = p.x;            window.mouseY = p.y;
+    if (dist(p.x, p.y, ptrX0, ptrY0) > 10) wantKeyboard = false;
+    mouseDragged();
+  }, { passive: false });
+
+  function end(e) {
+    if (e.pointerType === "mouse" || e.pointerId !== ptrId) return;
+    e.preventDefault();
+    ptrId = null;
+    window.mouseIsPressed = false;
+    mouseReleased();
+    if (wantKeyboard) {
+      ta.focus();
+      ta.setSelectionRange(ta.value.length, ta.value.length);
+    }
+    wantKeyboard = false;
+  }
+  el.addEventListener("pointerup", end, { passive: false });
+  el.addEventListener("pointercancel", end, { passive: false });
 }
