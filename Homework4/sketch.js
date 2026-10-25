@@ -50,6 +50,8 @@ let cloudPullY = 0;
 let smallDrag = null;
 let cloudSending = null;
 let savedOut = false;
+let cafeFolder = [];
+let folderBump = -9999;
 
 const MAP_STORE_KEY = "notes_map_drawing_v1";
 const MAP_PENCIL = 0.006;
@@ -2202,8 +2204,12 @@ function updateTear() {
     tear.vx = 0;
     tear.vy = 0;
     if (p >= 1) {
-      tear.phase = "sendChoose";
-      sendMenu = { from: current, source: "tear", shake: -99999 };
+      if (tear.toFolder) {
+        finishFolderSave();
+      } else {
+        tear.phase = "sendChoose";
+        sendMenu = { from: current, source: "tear", shake: -99999 };
+      }
     }
   } else if (ph === "sendChoose") {
     tear.fade = 0;
@@ -2212,8 +2218,15 @@ function updateTear() {
     tear.sp += dt / 0.8;
     const p = min(1, tear.sp);
     const e2 = p * p;
-    tear.ccx = lerp(tear.csx, -160, e2);
-    tear.ccy = tear.csy - 60 * sin(p * PI * 0.9);
+    if (tear.destX !== undefined) {
+      const e3 = ease(p);
+      tear.ccx = lerp(tear.csx, tear.destX, e3);
+      tear.ccy = lerp(tear.csy, tear.destY, e3);
+      tear.packA = 1 - smooth01(p, 0.75, 1);
+    } else {
+      tear.ccx = lerp(tear.csx, -160, e2);
+      tear.ccy = tear.csy - 60 * sin(p * PI * 0.9);
+    }
     if (p >= 1) {
       clearTear();
       return;
@@ -2231,7 +2244,7 @@ function updateTear() {
 
   const baseSz = r.w * 0.15;
   if (tear.phase === "sendAway") {
-    tear.csz = baseSz * lerp(1, 0.55, min(1, tear.sp));
+    tear.csz = baseSz * lerp(1, tear.destX !== undefined ? 0.3 : 0.55, min(1, tear.sp));
   } else {
     tear.ccx = tear.px + tear.ox + tear.sc * (r.x + r.w / 2 - tear.px);
     tear.ccy = tear.py + tear.oy + tear.sc * (r.y + r.h / 2 - tear.py);
@@ -3083,6 +3096,92 @@ function drawCup() {
   pop();
 }
 
+function folderRect() {
+  const p = cupPos();
+  const w = 124;
+  const h = 96;
+  const cx = constrain(p.x, w / 2 + 10, width - w / 2 - 10);
+  const cy = height * 0.45;
+  return { x: cx - w / 2, y: cy - h / 2, w: w, h: h, cx: cx, cy: cy };
+}
+
+function overFolder() {
+  return current === "cafe" && phase === "none" && cafeFolder.length > 0 && hitRect(folderRect());
+}
+
+function folderDropHit() {
+  const f = folderRect();
+  return mouseX > f.x - 50 && mouseX < f.x + f.w + 50 && mouseY > f.y - 50 && mouseY < f.y + f.h + 50;
+}
+
+function finishFolderSave() {
+  const f = folderRect();
+  cafeFolder.push({
+    text: ta.value,
+    strokes: strokes,
+    time: nf(hour(), 2) + ":" + nf(minute(), 2),
+    from: "cafe",
+  });
+  removeCurrentPage();
+  tear.phase = "sendAway";
+  tear.sp = 0;
+  tear.csx = tear.ccx;
+  tear.csy = tear.ccy;
+  tear.destX = f.cx;
+  tear.destY = f.cy;
+  tear.fade = 0;
+  tear.packA = 1;
+  folderBump = millis() + 500;
+  showToast("폴더에 저장했어요");
+  markActive();
+}
+
+function drawFolder() {
+  const dragging = tear && tear.phase === "drag";
+  const n = cafeFolder.length;
+  if (!dragging && n === 0) return;
+  const f = folderRect();
+  const hot = dragging && folderDropHit();
+  const near = dragging ? smooth01(mouseX, f.cx - 520, f.cx - 80) : 1;
+  const bump = constrain(1 - (millis() - folderBump) / 450, 0, 1);
+  const grow = hot ? 1.14 : (0.9 + 0.1 * near) + 0.08 * sin(bump * PI);
+  const w = f.w;
+  const h = f.h;
+
+  push();
+  drawingContext.globalAlpha = dragging ? 0.45 + 0.55 * near : 1;
+  translate(f.cx, f.cy);
+  scale(grow);
+
+  stroke(INK);
+  strokeWeight(3);
+  strokeJoin(ROUND);
+  fill(hot ? "#5aa9f2" : "#3d8fe0");
+  rect(-w / 2, -h / 2, w * 0.4, 26, 9, 9, 0, 0);
+  rect(-w / 2, -h / 2 + 14, w, h - 14, 9);
+  fill("#fffdf8");
+  rect(-w / 2 + 12, -h / 2 + 22, w - 24, 34, 3);
+  fill(hot ? "#9fd2ff" : "#6cb6f7");
+  rect(-w / 2, -h / 2 + 36, w, h - 36, 9);
+
+  if (n > 0) {
+    noStroke();
+    fill("#d9453d");
+    circle(w / 2 - 6, -h / 2 + 18, 24);
+    fill(255);
+    textAlign(CENTER, CENTER);
+    textSize(12);
+    text(min(n, 99), w / 2 - 6, -h / 2 + 18);
+  }
+
+  noStroke();
+  fill(35, 32, 28, 160);
+  textAlign(CENTER, CENTER);
+  textSize(12);
+  text("Memos", 0, h / 2 + 16);
+  pop();
+}
+
 function powerBtn() {
   return toolBtn(1);
 }
@@ -3358,11 +3457,15 @@ function drawFile() {
 }
 
 function curList() {
-  return listKind === "bag" ? bagList(current) : saved;
+  if (listKind === "bag") return bagList(current);
+  if (listKind === "folder") return cafeFolder;
+  return saved;
 }
 
 function viewList() {
-  return viewKind === "bag" ? bagList(current) : saved;
+  if (viewKind === "bag") return bagList(current);
+  if (viewKind === "folder") return cafeFolder;
+  return saved;
 }
 
 function filePanel() {
@@ -3373,6 +3476,10 @@ function filePanel() {
   if (listKind === "bag") {
     const b = bagRect();
     return { x: constrain(b.cx - w / 2, 12, max(12, width - w - 12)), y: max(70, b.y - h - 14), w: w, h: h };
+  }
+  if (listKind === "folder") {
+    const f = folderRect();
+    return { x: constrain(f.x - w - 16, 12, max(12, width - w - 12)), y: constrain(f.cy - h / 2, 70, max(70, height - h - 12)), w: w, h: h };
   }
   return { x: width - 20 - TOOL_SIZE - 12 - w, y: 20, w: w, h: h };
 }
@@ -3418,6 +3525,7 @@ function drawFilePanel() {
   const p = filePanel();
   const list = curList();
   const isBag = listKind === "bag";
+  const isFolder = listKind === "folder";
 
   push();
   stroke(INK);
@@ -3429,13 +3537,13 @@ function drawFilePanel() {
   fill(INK);
   textAlign(LEFT, CENTER);
   textSize(14);
-  text((isBag ? "Bag (" : "File (") + list.length + ")", p.x + 16, p.y + 24);
+  text((isBag ? "Bag (" : isFolder ? "Folder (" : "File (") + list.length + ")", p.x + 16, p.y + 24);
 
   if (list.length === 0) {
     textSize(13);
     fill(35, 32, 28, 150);
     text("Nothing here yet.", p.x + 16, p.y + 54);
-    text(isBag ? "Send a page from the other place." : "Fold a torn page four times.", p.x + 16, p.y + 74);
+    text(isBag ? "Send a page from the other place." : isFolder ? "Drag the notebook to the folder." : "Fold a torn page four times.", p.x + 16, p.y + 74);
     pop();
     return;
   }
@@ -3465,6 +3573,7 @@ function drawFilePanel() {
     textSize(13);
     textAlign(LEFT, CENTER);
     if (isBag) text("Page " + it.n + "  ·  from " + fromLabel(it), rr.x + 10, rr.y + 15);
+    else if (isFolder) text("Memo " + (idx + 1) + "  ·  " + it.time, rr.x + 10, rr.y + 15);
     else text("Page " + (idx + 1) + "  ·  " + it.time, rr.x + 10, rr.y + 15);
     textSize(12);
     fill(35, 32, 28, 150);
@@ -3473,7 +3582,7 @@ function drawFilePanel() {
     textAlign(RIGHT, CENTER);
     textSize(11);
     if (isBag) text("opened " + it.wear + "×", rr.x + rr.w - 10, rr.y + 15);
-    else text(neatLabel(it), rr.x + rr.w - 10, rr.y + 15);
+    else if (!isFolder) text(neatLabel(it), rr.x + rr.w - 10, rr.y + 15);
   }
   pop();
 }
@@ -3542,8 +3651,8 @@ function drawViewer() {
   sheetFade = wl;
   drawSheet(r, it.text, it.strokes, 1, false, 0);
   sheetFade = 0;
-  if (!bagView || it.from === "school") drawHoles(r);
-  drawFoldCreases(r, it);
+  if (viewKind !== "folder" && (!bagView || it.from === "school")) drawHoles(r);
+  if (viewKind !== "folder") drawFoldCreases(r, it);
   if (wl > 0) drawWear(r, it, wl);
   pop();
 
@@ -3556,6 +3665,7 @@ function drawViewer() {
   textAlign(CENTER, CENTER);
   textSize(14);
   if (bagView) text("Page " + it.n + "  ·  from " + fromLabel(it) + "  ·  opened " + it.wear + "×", width / 2, 36);
+  else if (viewKind === "folder") text("Memo " + (viewing + 1) + "  ·  saved " + it.time, width / 2, 36);
   else text("Page " + (viewing + 1) + "  ·  saved " + it.time + "  ·  " + neatLabel(it), width / 2, 36);
 
   if (bagView) {
@@ -3586,7 +3696,7 @@ function drawTearHint() {
   let msg = "";
 
   if (tear.phase === "drag") {
-    if (tear.send) msg = "Drop it on the left edge to send it  ·  Let go anywhere else to cancel";
+    if (tear.send) msg = "Left edge: send  ·  Folder on the right: save  ·  Let go anywhere else to cancel";
     else msg = tear.crumple >= 1
       ? "Let go to drop the crumpled paper"
       : "Shake to crumple  ·  Left edge to send  ·  Outside the notebook to fold  ·  Throw down to discard";
@@ -3896,6 +4006,7 @@ function drawPlace(key) {
     if (key === "cafe") updateCafe();
     if (key === "school") updateSchool();
     updateTear();
+    if (key === "cafe") drawFolder();
     drawNotes();
     if (key === "school") drawSleepyCover();
     if (key === "cafe") drawCup();
@@ -3949,7 +4060,7 @@ function drawPlace(key) {
     else if (tear && tear.phase === "packet" && overPacket()) cursor(HAND);
     else if (tear) cursor(over ? HAND : ARROW);
     else if (over || overToolBtn() >= 0 || overSettingsUI() || overPageNav() >= 0 || overCup() ||
-             overFile() || overBag() || overPowerBtn() || overFileRow() >= 0) cursor(HAND);
+             overFile() || overBag() || overPowerBtn() || overFolder() || overFileRow() >= 0) cursor(HAND);
     else if (overPaper()) {
       if (blocked()) cursor(ARROW);
       else if (tool === "type") cursor(TEXT);
@@ -4021,6 +4132,14 @@ function mousePressed() {
     if (overBag()) {
       if (filesOpen && listKind === "bag") filesOpen = false;
       else { filesOpen = true; listKind = "bag"; }
+      settingsOpen = false;
+      fileScroll = 0;
+      markActive();
+      return false;
+    }
+    if (current === "cafe" && overFolder()) {
+      if (filesOpen && listKind === "folder") filesOpen = false;
+      else { filesOpen = true; listKind = "folder"; }
       settingsOpen = false;
       fileScroll = 0;
       markActive();
@@ -4178,6 +4297,7 @@ function mouseDragged() {
       const dy = mouseY - pressPaper.y;
       if (current === "school" && dx > TEAR_START && dx > abs(dy)) startTear();
       else if (current === "cafe" && dx < -SEND_START && -dx > abs(dy)) startTear();
+      else if (current === "cafe" && dx > SEND_START && dx > abs(dy)) startTear();
     }
     return false;
   }
@@ -4249,7 +4369,8 @@ function mouseReleased() {
       const r = paperRect();
       const inNotebook = mouseX > r.x && mouseX < r.x + r.w && mouseY > r.y && mouseY < r.y + r.h;
       const inZone = mouseX < sendZoneX() && tear.crumple < 1;
-      if (inZone) startToPacket();
+      if (current === "cafe" && folderDropHit()) { tear.toFolder = true; startToPacket(); }
+      else if (inZone) startToPacket();
       else if (tear.send) tear.phase = "back";
       else if (tear.crumple >= 1) dropBall();
       else if (tear.vy > THROW_SPEED && tear.vy > abs(tear.vx) * 0.6) throwTornPage();
