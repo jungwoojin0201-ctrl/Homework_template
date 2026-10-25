@@ -4124,13 +4124,20 @@ function keyPressed() {
 }
 
 function mouseWheel(event) {
-  let wantKeyboard = false;
+  if ((current === "school" || current === "cafe") && filesOpen && curList().length > FILE_ROWS) {
+    fileScroll = constrain(fileScroll + (event.delta > 0 ? 1 : -1), 0, curList().length - FILE_ROWS);
+    return false;
+  }
+}
+
+let wantKeyboard = false;
 let touchX0 = 0;
 let touchY0 = 0;
 
 function touchStarted() {
   touchX0 = mouseX;
   touchY0 = mouseY;
+  mouseIsPressed = true;
   mousePressed();
   wantKeyboard = (typeof ta !== "undefined" && document.activeElement === ta);
   return false;
@@ -4143,6 +4150,7 @@ function touchMoved() {
 }
 
 function touchEnded() {
+  mouseIsPressed = false;
   mouseReleased();
   if (wantKeyboard) {
     ta.focus();
@@ -4150,9 +4158,4 @@ function touchEnded() {
   }
   wantKeyboard = false;
   return false;
-}
-  if ((current === "school" || current === "cafe") && filesOpen && curList().length > FILE_ROWS) {
-    fileScroll = constrain(fileScroll + (event.delta > 0 ? 1 : -1), 0, curList().length - FILE_ROWS);
-    return false;
-  }
 }
