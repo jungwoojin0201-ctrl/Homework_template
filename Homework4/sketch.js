@@ -874,7 +874,6 @@ function drawHome() {
   drawSmallClouds();
   drawPeek();
 }
-}
 function cloudTextInfo() {
   const c = homeCloud;
   const fs = constrain(min(c.tw, c.th) * 0.05, 18, 34);
@@ -1133,10 +1132,7 @@ function homeDragged() {
   if (sendMenu) return false;
   if (smallDrag) {
     const sd = smallDrag;
-    if (sd.peek) return false;     // ← 이 줄 추가
-    if (!sd.moved && dist(mouseX, mouseY, sd.px, sd.py) < 12) return false;
-    ...
-    const sd = smallDrag;
+    if (sd.peek) return false;
     if (!sd.moved && dist(mouseX, mouseY, sd.px, sd.py) < 12) return false;
     sd.c.x = mouseX + sd.ox;
     sd.c.y = mouseY + sd.oy;
@@ -1176,7 +1172,6 @@ function homeDragged() {
   }
   return false;
 }
-
 function homeReleased() {
   if (smallDrag) {
     const c = smallDrag.c;
