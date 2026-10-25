@@ -1046,6 +1046,28 @@ function drawCloudPops() {
   }
   pop();
 }
+function drawHomeSendZone() {
+  if (!smallDrag || !smallDrag.moved) return;
+  const z = HOME_SEND_ZONE;
+  const prox = smooth01(mouseX, z + 280, z);
+  const hot = mouseX < z;
+  push();
+  noStroke();
+  fill(255, 233, 168, (hot ? 170 : 90) * prox);
+  rect(0, 0, z, height);
+  stroke(35, 32, 28, 120 * prox);
+  strokeWeight(2);
+  drawingContext.setLineDash([8, 8]);
+  line(z, 0, z, height);
+  drawingContext.setLineDash([]);
+  noStroke();
+  fill(35, 32, 28, 210 * prox);
+  textFont(KO_FONT);
+  textAlign(CENTER, CENTER);
+  textSize(15);
+  text("← 보내기", z / 2, height / 2);
+  pop();
+}
 function homeDragged() {
   if (sendMenu) return false;
   if (smallDrag) {
