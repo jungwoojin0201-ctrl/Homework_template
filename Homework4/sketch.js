@@ -4132,10 +4132,6 @@ function mouseWheel(event) {
 }
 
 let wantKeyboard = false;
-let touchX0 = 0;
-let touchY0 = 0;
-
-let wantKeyboard = false;
 let ptrId = null;
 let ptrX0 = 0;
 let ptrY0 = 0;
