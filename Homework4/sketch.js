@@ -38,6 +38,7 @@ const SMALL_SPEED = 0.35;
 const ARRIVE_MS = 900;
 const SAVE_RESPAWN = 600;
 const HOME_SEND_ZONE = 110;
+const SMALL_DOUBLE_TAP = 500;
 let homeSaved = [];
 let cloudPull = null;
 let cloudPullX = 0;
@@ -700,13 +701,13 @@ function homePressed() {
     const hh = max(homeCloud.hy * c.s * 1.2, 24);
     if (pow(abs(mouseX - c.x) / hw, CLOUD_SQUARE) + pow(abs(mouseY - c.y) / hh, CLOUD_SQUARE) <= 1) {
       const nowTap = millis();
-      if (c.lastTap && nowTap - c.lastTap < HOME_DOUBLE_TAP) {
+      if (c.lastTap && nowTap - c.lastTap < SMALL_DOUBLE_TAP) {
         homeSaved.splice(i, 1);
         smallDrag = null;
         return false;
       }
       c.lastTap = nowTap;
-      smallDrag = { c: c, ox: c.x - mouseX, oy: c.y - mouseY, moved: false };
+      smallDrag = { c: c, ox: c.x - mouseX, oy: c.y - mouseY, moved: false, px: mouseX, py: mouseY };
       homeSaved.splice(i, 1);
       homeSaved.push(c);
       ta.blur();
@@ -1044,6 +1045,7 @@ function drawHomeSendZone() {
 function homeDragged() {
   if (sendMenu) return false;
   if (smallDrag) {
+    if (!smallDrag.moved && dist(mouseX, mouseY, smallDrag.px, smallDrag.py) < 12) return false;
     smallDrag.c.x = mouseX + smallDrag.ox;
     smallDrag.c.y = mouseY + smallDrag.oy;
     smallDrag.moved = true;
