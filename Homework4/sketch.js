@@ -1132,7 +1132,6 @@ function drawHomeSendZone() {
 function homeDragged() {
   if (sendMenu) return false;
   if (smallDrag) {
-      if (smallDrag) {
     const sd = smallDrag;
     if (sd.peek) return false;     // ← 이 줄 추가
     if (!sd.moved && dist(mouseX, mouseY, sd.px, sd.py) < 12) return false;
