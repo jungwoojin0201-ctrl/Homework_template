@@ -38,6 +38,7 @@ const SMALL_SPEED = 0.35;
 const ARRIVE_MS = 900;
 const SAVE_RESPAWN = 600;
 const HOME_SEND_ZONE = 110;
+const PEEK_MS = 350;
 const SHAKE_DELETE = 6;
 const SHAKE_MIN_MOVE = 6;
 const SHAKE_WINDOW = 1200;
@@ -704,7 +705,8 @@ function homePressed() {
     const hh = max(homeCloud.hy * c.s * 1.2, 24);
     if (pow(abs(mouseX - c.x) / hw, CLOUD_SQUARE) + pow(abs(mouseY - c.y) / hh, CLOUD_SQUARE) <= 1) {
       smallDrag = { c: c, ox: c.x - mouseX, oy: c.y - mouseY, moved: false, px: mouseX, py: mouseY,
-                    lx: mouseX, ly: mouseY, dirx: 0, diry: 0, shakes: 0, lastShake: 0 };
+              lx: mouseX, ly: mouseY, dirx: 0, diry: 0, shakes: 0, lastShake: 0,
+              pressAt: millis(), peek: false, peekAt: 0 };
       homeSaved.splice(i, 1);
       homeSaved.push(c);
       ta.blur();
@@ -867,6 +869,11 @@ function drawHome() {
   updateSmallClouds();
   drawHomeSendZone();
   drawSmallClouds();
+  updateSmallClouds();
+  drawHomeSendZone();
+  drawSmallClouds();
+  drawPeek();
+}
 }
 function cloudTextInfo() {
   const c = homeCloud;
@@ -1046,6 +1053,60 @@ function drawCloudPops() {
   }
   pop();
 }
+function drawPeek() {
+  const sd = smallDrag;
+  if (!sd || sd.moved || !homeCloud) return;
+
+  if (!sd.peek) {
+    if (millis() - sd.pressAt < PEEK_MS) return;
+    sd.peek = true;
+    sd.peekAt = millis();
+  }
+
+  const c = homeCloud;
+  const k = ease(constrain((millis() - sd.peekAt) / 220, 0, 1));
+  const fs = constrain(min(c.tw, c.th) * 0.05, 18, 34);
+  const lh = fs * 1.5;
+  const maxLines = max(1, floor(c.th / lh));
+
+  push();
+  noStroke();
+  fill(0, 120 * k);
+  rect(0, 0, width, height);
+
+  translate(c.cx, c.cy);
+  scale(lerp(0.5, 1, k));
+  translate(-c.cx, -c.cy);
+  drawingContext.globalAlpha = k;
+
+  drawHomeCloud();
+
+  textFont(KO_FONT);
+  textSize(fs);
+  textAlign(LEFT, TOP);
+  noStroke();
+  fill(INK);
+  if (sd.c.text.trim().length === 0) {
+    textAlign(CENTER, CENTER);
+    fill(35, 32, 28, 110);
+    text("(빈 메모)", c.cx, c.cy);
+  } else {
+    const lines = wrapText(sd.c.text, c.tw).slice(0, maxLines);
+    for (let i = 0; i < lines.length; i++) {
+      text(lines[i].text, c.tx, c.ty + i * lh);
+    }
+  }
+  pop();
+
+  push();
+  noStroke();
+  fill(255, 220 * k);
+  textFont(KO_FONT);
+  textAlign(CENTER, CENTER);
+  textSize(14);
+  text("손을 떼면 돌아가요", width / 2, height - 32);
+  pop();
+}
 function drawHomeSendZone() {
   if (!smallDrag || !smallDrag.moved) return;
   const z = HOME_SEND_ZONE;
@@ -1071,6 +1132,11 @@ function drawHomeSendZone() {
 function homeDragged() {
   if (sendMenu) return false;
   if (smallDrag) {
+      if (smallDrag) {
+    const sd = smallDrag;
+    if (sd.peek) return false;     // ← 이 줄 추가
+    if (!sd.moved && dist(mouseX, mouseY, sd.px, sd.py) < 12) return false;
+    ...
     const sd = smallDrag;
     if (!sd.moved && dist(mouseX, mouseY, sd.px, sd.py) < 12) return false;
     sd.c.x = mouseX + sd.ox;
