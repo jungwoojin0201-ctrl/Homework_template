@@ -910,6 +910,45 @@ function saveCloud() {
   cloudPullX = 0;
   cloudPullY = 0;
 }
+function cloudBarsFor(txt) {
+  const c = homeCloud;
+  const fs = constrain(min(c.tw, c.th) * 0.05, 18, 34);
+  const lh = fs * 1.5;
+  const maxL = max(1, floor(c.th / lh));
+  push();
+  textFont(KO_FONT);
+  textSize(fs);
+  const lines = wrapText(txt, c.tw);
+  const bars = lines.slice(0, maxL).map(function (l, k) {
+    return { x: c.tx - c.cx, y: c.ty - c.cy + k * lh + fs * 0.6, w: textWidth(l.text) };
+  });
+  pop();
+  return bars;
+}
+
+function addCloudToHome(txt) {
+  if (!homeCloud) return;
+  const c = homeCloud;
+  const hw = c.hx * SMALL_SCALE;
+  const hh = c.hy * SMALL_SCALE;
+  const a = random(TWO_PI);
+  homeSaved.push({
+    text: txt,
+    bars: cloudBarsFor(txt),
+    sx: HOME_SEND_ZONE * 0.5,
+    sy: random(height * 0.25, height * 0.75),
+    s0: 0.3,
+    s: 0.3,
+    x: HOME_SEND_ZONE * 0.5,
+    y: height / 2,
+    tx: random(min(HOME_SEND_ZONE + hw + 20, width / 2), max(width / 2, width - hw - 20)),
+    ty: random(min(hh + 20, height / 2), max(height / 2, height - hh - 20)),
+    t0: millis(),
+    arrive: true,
+    vx: cos(a) * SMALL_SPEED,
+    vy: sin(a) * SMALL_SPEED,
+  });
+}
 
 function updateSmallClouds() {
   if (cloudSending && !sendMenu) cloudSending = null;
@@ -1527,7 +1566,7 @@ function sendDests() {
 function sendLabel(d) {
   if (d === "cafe") return "카페로 보내기";
   if (d === "school") return "학교로 보내기";
-  return "집으로 보내기 (준비 중)";
+  return "집으로 보내기";
 }
 
 function sendMenuRect() {
@@ -1567,7 +1606,7 @@ function drawSendMenu() {
 
   for (let i = 0; i < 2; i++) {
     const b = sendBtnRect(i);
-    const enabled = dests[i] !== "home";
+    const enabled = true;
     const hov = enabled && hitRect(b);
     const age = millis() - sendMenu.shake;
     const sh = (!enabled && age < 400) ? sin(age * 0.05) * 5 * (1 - age / 400) : 0;
@@ -1593,8 +1632,7 @@ function sendMenuPressed() {
   const dests = sendDests();
   for (let i = 0; i < 2; i++) {
     if (hitRect(sendBtnRect(i))) {
-      if (dests[i] === "home") sendMenu.shake = millis();
-      else doSend(dests[i]);
+    doSend(dests[i]);
       return false;
     }
   }
@@ -1664,7 +1702,7 @@ function drawToast() {
 
 function doSend(dest) {
   const fromPlace = current;
-  const msg = dest === "cafe" ? "카페로 보냈어요" : "학교로 보냈어요";
+    const msg = dest === "cafe" ? "카페로 보냈어요" : dest === "home" ? "집으로 보냈어요" : "학교로 보냈어요";
     if (sendMenu.source === "cloud") {
     const c = cloudSending;
     if (c) {
@@ -1678,8 +1716,8 @@ function doSend(dest) {
   }
 
   if (sendMenu.source === "tear") {
-    const item = makeBagItem(ta.value, strokes, fromPlace);
-    bag[dest].push(item);
+    if (dest === "home") addCloudToHome(ta.value);
+    else bag[dest].push(makeBagItem(ta.value, strokes, fromPlace));
     removeCurrentPage();
 
     tear.phase = "sendAway";
@@ -1697,7 +1735,8 @@ function doSend(dest) {
       item.wear++;
       item.from = fromPlace;
       item.used = ++useSeq;
-      bag[dest].push(item);
+      if (dest === "home") addCloudToHome(item.text);
+      else bag[dest].push(item);
     }
     viewing = -1;
     viewPress = null;
