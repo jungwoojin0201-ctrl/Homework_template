@@ -38,7 +38,10 @@ const SMALL_SPEED = 0.35;
 const ARRIVE_MS = 900;
 const SAVE_RESPAWN = 600;
 const HOME_SEND_ZONE = 110;
-const SMALL_DOUBLE_TAP = 500;
+const SHAKE_DELETE = 6;
+const SHAKE_MIN_MOVE = 6;
+const SHAKE_WINDOW = 1200;
+let cloudPops = [];
 let homeSaved = [];
 let cloudPull = null;
 let cloudPullX = 0;
@@ -700,14 +703,8 @@ function homePressed() {
     const hw = max(homeCloud.hx * c.s * 1.2, 30);
     const hh = max(homeCloud.hy * c.s * 1.2, 24);
     if (pow(abs(mouseX - c.x) / hw, CLOUD_SQUARE) + pow(abs(mouseY - c.y) / hh, CLOUD_SQUARE) <= 1) {
-      const nowTap = millis();
-      if (c.lastTap && nowTap - c.lastTap < SMALL_DOUBLE_TAP) {
-        homeSaved.splice(i, 1);
-        smallDrag = null;
-        return false;
-      }
-      c.lastTap = nowTap;
-      smallDrag = { c: c, ox: c.x - mouseX, oy: c.y - mouseY, moved: false, px: mouseX, py: mouseY };
+      smallDrag = { c: c, ox: c.x - mouseX, oy: c.y - mouseY, moved: false, px: mouseX, py: mouseY,
+                    lx: mouseX, ly: mouseY, dirx: 0, diry: 0, shakes: 0, lastShake: 0 };
       homeSaved.splice(i, 1);
       homeSaved.push(c);
       ta.blur();
@@ -1017,38 +1014,64 @@ function drawSmallCloud(c) {
 
 function drawSmallClouds() {
   for (const c of homeSaved) drawSmallCloud(c);
+  drawCloudPops();
 }
 
-function drawHomeSendZone() {
-  if (!smallDrag || !smallDrag.moved) return;
-  const z = HOME_SEND_ZONE;
-  const prox = smooth01(mouseX, z + 280, z);
-  const hot = mouseX < z;
+function deleteSmallCloud(c) {
+  const i = homeSaved.indexOf(c);
+  if (i >= 0) homeSaved.splice(i, 1);
+  cloudPops.push({ x: c.x, y: c.y, s: c.s, t0: millis() });
+  smallDrag = null;
+}
+
+function drawCloudPops() {
+  const now = millis();
+  cloudPops = cloudPops.filter(function (p) { return now - p.t0 < 450; });
   push();
-  noStroke();
-  fill(255, 233, 168, (hot ? 170 : 90) * prox);
-  rect(0, 0, z, height);
-  stroke(35, 32, 28, 120 * prox);
-  strokeWeight(2);
-  drawingContext.setLineDash([8, 8]);
-  line(z, 0, z, height);
-  drawingContext.setLineDash([]);
-  noStroke();
-  fill(35, 32, 28, 210 * prox);
-  textFont(KO_FONT);
-  textAlign(CENTER, CENTER);
-  textSize(15);
-  text("← 보내기", z / 2, height / 2);
+  for (const p of cloudPops) {
+    const k = (now - p.t0) / 450;
+    const rx = homeCloud.hx * p.s * (1 + k * 1.2);
+    const ry = homeCloud.hy * p.s * (1 + k * 1.2);
+    noFill();
+    stroke(35, 32, 28, 200 * (1 - k));
+    strokeWeight(2);
+    ellipse(p.x, p.y, rx * 2, ry * 2);
+    noStroke();
+    fill(35, 32, 28, 200 * (1 - k));
+    for (let i = 0; i < 8; i++) {
+      const a = TWO_PI * i / 8;
+      const d = max(rx, ry) * (0.6 + k * 0.8);
+      circle(p.x + cos(a) * d, p.y + sin(a) * d, 6 * (1 - k) + 1);
+    }
+  }
   pop();
 }
-
 function homeDragged() {
   if (sendMenu) return false;
   if (smallDrag) {
-    if (!smallDrag.moved && dist(mouseX, mouseY, smallDrag.px, smallDrag.py) < 12) return false;
-    smallDrag.c.x = mouseX + smallDrag.ox;
-    smallDrag.c.y = mouseY + smallDrag.oy;
-    smallDrag.moved = true;
+    const sd = smallDrag;
+    if (!sd.moved && dist(mouseX, mouseY, sd.px, sd.py) < 12) return false;
+    sd.c.x = mouseX + sd.ox;
+    sd.c.y = mouseY + sd.oy;
+    sd.moved = true;
+
+    const dx = mouseX - sd.lx;
+    const dy = mouseY - sd.ly;
+    if (sqrt(dx * dx + dy * dy) > SHAKE_MIN_MOVE) {
+      if (sd.dirx * dx + sd.diry * dy < 0) {
+        const now = millis();
+        sd.shakes = (now - sd.lastShake < SHAKE_WINDOW) ? sd.shakes + 1 : 1;
+        sd.lastShake = now;
+        if (sd.shakes >= SHAKE_DELETE) {
+          deleteSmallCloud(sd.c);
+          return false;
+        }
+      }
+      sd.dirx = dx;
+      sd.diry = dy;
+      sd.lx = mouseX;
+      sd.ly = mouseY;
+    }
     return false;
   }
   if (cloudPull && homeAlive) {
@@ -1070,7 +1093,7 @@ function homeDragged() {
 function homeReleased() {
   if (smallDrag) {
     const c = smallDrag.c;
-    if (moved) c.lastTap = 0;
+    const moved = smallDrag.moved;
     smallDrag = null;
     if (moved && mouseX < HOME_SEND_ZONE) {
       cloudSending = c;
