@@ -699,6 +699,13 @@ function homePressed() {
     const hw = max(homeCloud.hx * c.s * 1.2, 30);
     const hh = max(homeCloud.hy * c.s * 1.2, 24);
     if (pow(abs(mouseX - c.x) / hw, CLOUD_SQUARE) + pow(abs(mouseY - c.y) / hh, CLOUD_SQUARE) <= 1) {
+      const nowTap = millis();
+      if (c.lastTap && nowTap - c.lastTap < HOME_DOUBLE_TAP) {
+        homeSaved.splice(i, 1);
+        smallDrag = null;
+        return false;
+      }
+      c.lastTap = nowTap;
       smallDrag = { c: c, ox: c.x - mouseX, oy: c.y - mouseY, moved: false };
       homeSaved.splice(i, 1);
       homeSaved.push(c);
@@ -1061,7 +1068,7 @@ function homeDragged() {
 function homeReleased() {
   if (smallDrag) {
     const c = smallDrag.c;
-    const moved = smallDrag.moved;
+    if (moved) c.lastTap = 0;
     smallDrag = null;
     if (moved && mouseX < HOME_SEND_ZONE) {
       cloudSending = c;
