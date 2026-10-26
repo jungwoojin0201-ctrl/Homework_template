@@ -52,6 +52,9 @@ let cloudSending = null;
 let savedOut = false;
 let cafeFolder = [];
 let folderBump = -9999;
+let driveOpen = false;
+let driveShow = 0;
+const SAVE_ZONE = 110;
 
 const MAP_STORE_KEY = "notes_map_drawing_v1";
 const MAP_PENCIL = 0.006;
@@ -303,6 +306,7 @@ function goTo(target) {
   settingsOpen = false;
   filesOpen = false;
   closeViewer();
+  driveOpen = false;
   sendMenu = null;
   drinking = false;
   powerHold = -1;
@@ -3137,25 +3141,26 @@ function drawCup() {
 }
 
 function folderRect() {
-  const p = cupPos();
-  const w = 124;
-  const h = 96;
-  const cx = constrain(p.x, w / 2 + 10, width - w / 2 - 10);
-  const cy = height * 0.45;
-  return { x: cx - w / 2, y: cy - h / 2, w: w, h: h, cx: cx, cy: cy };
+  const r = paperRect();
+  const left = r.x + r.w + 30;
+  const areaW = max(140, width - left - 16);
+  const w = min(areaW, 320);
+  const h = min(height * 0.9, w * 1.8);
+  const cx = left + (width - left) / 2;
+  const cy = height * 0.5;
+  const slide = (1 - ease(driveShow)) * (height - cy + h / 2 + 40);
+  return { x: cx - w / 2, y: cy - h / 2 + slide, w: w, h: h, cx: cx, cy: cy + slide };
 }
 
 function overFolder() {
-  return current === "cafe" && phase === "none" && cafeFolder.length > 0 && hitRect(folderRect());
+  return current === "cafe" && phase === "none" && driveShow > 0.6 && hitRect(folderRect());
 }
 
 function folderDropHit() {
-  const f = folderRect();
-  return mouseX > f.x - 50 && mouseX < f.x + f.w + 50 && mouseY > f.y - 50 && mouseY < f.y + f.h + 50;
+  return mouseX > width - SAVE_ZONE;
 }
 
 function finishFolderSave() {
-  const f = folderRect();
   cafeFolder.push({
     text: ta.value,
     strokes: strokes,
@@ -3163,62 +3168,118 @@ function finishFolderSave() {
     from: "cafe",
   });
   removeCurrentPage();
+  const f = folderRect();
   tear.phase = "sendAway";
   tear.sp = 0;
   tear.csx = tear.ccx;
   tear.csy = tear.ccy;
-  tear.destX = f.cx;
-  tear.destY = f.cy;
+  if (driveShow > 0.6) {
+    tear.destX = f.cx;
+    tear.destY = f.cy;
+  } else {
+    tear.destX = width + 180;
+    tear.destY = tear.ccy - 40;
+  }
   tear.fade = 0;
   tear.packA = 1;
   folderBump = millis() + 500;
-  showToast("폴더에 저장했어요");
+  showToast("저장했어요 · 위로 쓸어 올리면 볼 수 있어요");
   markActive();
 }
 
 function drawFolder() {
-  const dragging = tear && tear.phase === "drag";
-  const n = cafeFolder.length;
-  if (!dragging && n === 0) return;
+  driveShow = lerp(driveShow, driveOpen ? 1 : 0, 0.15);
+  if (!driveOpen && driveShow < 0.005) driveShow = 0;
+
+  if (tear && tear.phase === "drag" && tear.send) {
+    const z = SAVE_ZONE;
+    const prox = smooth01(mouseX, width - z - 280, width - z);
+    const hot = mouseX > width - z;
+    push();
+    noStroke();
+    fill(255, 233, 168, (hot ? 170 : 90) * prox);
+    rect(width - z, 0, z, height);
+    stroke(35, 32, 28, 120 * prox);
+    strokeWeight(2);
+    drawingContext.setLineDash([8, 8]);
+    line(width - z, 0, width - z, height);
+    drawingContext.setLineDash([]);
+    noStroke();
+    fill(35, 32, 28, 210 * prox);
+    textFont(KO_FONT);
+    textAlign(CENTER, CENTER);
+    textSize(15);
+    text("저장 →", width - z / 2, height / 2);
+    pop();
+  }
+
+  if (driveShow < 0.01) return;
+
   const f = folderRect();
-  const hot = dragging && folderDropHit();
-  const near = dragging ? smooth01(mouseX, f.cx - 520, f.cx - 80) : 1;
-  const bump = constrain(1 - (millis() - folderBump) / 450, 0, 1);
-  const grow = hot ? 1.14 : (0.9 + 0.1 * near) + 0.08 * sin(bump * PI);
+  const n = cafeFolder.length;
   const w = f.w;
   const h = f.h;
+  const bump = constrain(1 - (millis() - folderBump) / 450, 0, 1);
+  const k = 1 + 0.05 * sin(bump * PI);
+  const flash = constrain(1 - (millis() - folderBump) / 1000, 0, 1);
+  const cx = w / 2;
+  const bw = w * 0.56;
+  const bx = cx - bw / 2;
+  const by = h * 0.34;
+  const bh = h * 0.64;
+  const plugW = bw * 0.1;
+  const plugH = h * 0.03;
+  const neckH = h * 0.02;
 
   push();
-  drawingContext.globalAlpha = dragging ? 0.45 + 0.55 * near : 1;
-  translate(f.cx, f.cy);
-  scale(grow);
+  translate(f.x + w / 2, f.y + h / 2);
+  scale(k);
+  translate(-w / 2, -h / 2);
+
+  noFill();
+  stroke(INK);
+  strokeWeight(8);
+  line(cx, by, cx, plugH + neckH);
+
+  noStroke();
+  fill("#141413");
+  rect(cx - plugW * 0.7, plugH, plugW * 1.4, h * 0.05);
+
+  stroke(INK);
+  strokeWeight(2);
+  fill("#b9b6b0");
+  rect(cx - plugW / 2, 0, plugW, plugH);
 
   stroke(INK);
   strokeWeight(3);
-  strokeJoin(ROUND);
-  fill(hot ? "#5aa9f2" : "#3d8fe0");
-  rect(-w / 2, -h / 2, w * 0.4, 26, 9, 9, 0, 0);
-  rect(-w / 2, -h / 2 + 14, w, h - 14, 9);
-  fill("#fffdf8");
-  rect(-w / 2 + 12, -h / 2 + 22, w - 24, 34, 3);
-  fill(hot ? "#9fd2ff" : "#6cb6f7");
-  rect(-w / 2, -h / 2 + 36, w, h - 36, 9);
+  fill("#141413");
+  rect(bx, by, bw, bh);
 
-  if (n > 0) {
+  const maxDots = 8;
+  const lit = min(n, maxDots);
+  const gapY = 18;
+  for (let i = 0; i < maxDots; i++) {
+    const col = i % 2;
+    const row = floor(i / 2);
+    const px = cx + (col === 0 ? -1 : 1) * bw * 0.14;
+    const py = by + bh - 24 - row * gapY;
+    const on = i < lit;
+    const newest = on && i === lit - 1 && n <= maxDots;
+    if (newest && flash > 0) {
+      noStroke();
+      fill(108, 214, 138, 110 * flash);
+      circle(px, py, 12 + 26 * flash);
+    }
     noStroke();
-    fill("#d9453d");
-    circle(w / 2 - 6, -h / 2 + 18, 24);
-    fill(255);
-    textAlign(CENTER, CENTER);
-    textSize(12);
-    text(min(n, 99), w / 2 - 6, -h / 2 + 18);
+    fill(on ? "#6cd68a" : "#3a3938");
+    circle(px, py, 9);
   }
 
   noStroke();
   fill(35, 32, 28, 160);
   textAlign(CENTER, CENTER);
   textSize(12);
-  text("Memos", 0, h / 2 + 16);
+  text("Memos", cx, h + 14);
   pop();
 }
 
@@ -4339,6 +4400,18 @@ function mouseDragged() {
       if (current === "school" && dx > TEAR_START && dx > abs(dy)) startTear();
       else if (current === "cafe" && dx < -SEND_START && -dx > abs(dy)) startTear();
       else if (current === "cafe" && dx > SEND_START && dx > abs(dy)) startTear();
+            else if (current === "cafe" && dy < -SEND_START && -dy > abs(dx)) {
+        driveOpen = true;
+        pressPaper = null;
+        filesOpen = false;
+        ta.blur();
+      }
+      else if (current === "cafe" && dy > SEND_START && dy > abs(dx) && driveOpen) {
+        driveOpen = false;
+        pressPaper = null;
+        if (listKind === "folder") filesOpen = false;
+        ta.blur();
+      }
     }
     return false;
   }
