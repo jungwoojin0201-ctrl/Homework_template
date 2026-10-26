@@ -6,7 +6,7 @@ const places = {
   school: { label: "School", col: "#ffff" },
 };
 
-const MAP_BG = "#f3efe8";
+const MAP_BG = "#fbe4ea";
 
 let boxes = {};
 let backBtn = {};
