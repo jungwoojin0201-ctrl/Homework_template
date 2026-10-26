@@ -201,6 +201,8 @@ let t = 0;
 let pending = null;
 let from = null;
 let zoomCenter = { x: 0, y: 0 };
+let started = false;
+let startAt = -99999;
 
 function setup() {
   const cnv = createCanvas(windowWidth, windowHeight);
@@ -218,6 +220,39 @@ function setup() {
   ta.setAttribute("autocorrect", "off");
   ta.setAttribute("spellcheck", "false");
   document.body.appendChild(ta);
+}
+
+function startBtnRect() {
+  const w = constrain(width * 0.5, 200, 260);
+  const h = 64;
+  return { x: width / 2 - w / 2, y: height / 2 - h / 2, w: w, h: h };
+}
+
+function drawStartScreen() {
+  background(255);
+  const b = startBtnRect();
+  const over = hitRect(b);
+  const lift = over ? 3 : 0;
+  push();
+  stroke(INK);
+  strokeWeight(4);
+  fill(over ? INK : "#fffdf8");
+  rect(b.x, b.y - lift, b.w, b.h);
+  noStroke();
+  fill(over ? "#fffdf8" : INK);
+  textAlign(CENTER, CENTER);
+  textSize(22);
+  text("Start Memo", b.x + b.w / 2, b.y + b.h / 2 - lift);
+  pop();
+  cursor(over ? HAND : ARROW);
+}
+
+function startPressed() {
+  if (hitRect(startBtnRect())) {
+    started = true;
+    startAt = millis();
+  }
+  return false;
 }
 
 function windowResized() {
@@ -385,7 +420,8 @@ function drawFrame() {
   scale(sc);
   translate(-cx, -cy);
 
-  if (current === null) drawMap();
+  if (!started) drawStartScreen();
+  else if (current === null) drawMap();
   else drawPlace(current);
   pop();
 
@@ -399,7 +435,11 @@ function drawFrame() {
     fill(c);
     rect(0, 0, width, height);
   }
-
+  if (started && millis() - startAt < 500) {
+    noStroke();
+    fill(255, 255 * (1 - (millis() - startAt) / 500));
+    rect(0, 0, width, height);
+  }
   if (phase !== "none") cursor(ARROW);
 }
 
@@ -4071,6 +4111,7 @@ function drawPlace(key) {
 }
 
 function mousePressed() {
+  if (!started) return startPressed();
   if (phase !== "none") return;
   if (current === null) return mapPressed();
   if (sendMenu) return sendMenuPressed();
