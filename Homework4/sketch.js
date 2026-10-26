@@ -826,7 +826,7 @@ function drawHomeText() {
     textAlign(CENTER, CENTER);
     fill(35, 32, 28, 110);
     textSize(fs * 0.7);
-    text("한 번 누르면 쓰기 · 두 번 누르면 펑", c.cx, c.cy);
+    text("Press to type · Press twice to delete", c.cx, c.cy);
   }
   pop();
 }
@@ -907,7 +907,7 @@ function drawHome() {
       textFont(KO_FONT);
       textSize(15);
       textAlign(CENTER, CENTER);
-      text(prog >= 1 ? "놓으면 저장돼요" : "더 올리면 저장돼요", width / 2, 54);
+      text(prog >= 1 ? "Let go to save" : "Pull up more to save", width / 2, 54);
       pop();
     }
   }
@@ -1134,7 +1134,7 @@ function drawPeek() {
   if (sd.c.text.trim().length === 0) {
     textAlign(CENTER, CENTER);
     fill(35, 32, 28, 110);
-    text("(빈 메모)", c.cx, c.cy);
+    text("(Empty Note)", c.cx, c.cy);
   } else {
     const lines = wrapText(sd.c.text, c.tw).slice(0, maxLines);
     for (let i = 0; i < lines.length; i++) {
@@ -1149,7 +1149,7 @@ function drawPeek() {
   textFont(KO_FONT);
   textAlign(CENTER, CENTER);
   textSize(14);
-  text("손을 떼면 돌아가요", width / 2, height - 32);
+  text("Release to let go", width / 2, height - 32);
   pop();
 }
 function drawHomeSendZone() {
@@ -1234,7 +1234,7 @@ function homeReleased() {
     cloudPull = null;
     if (active && cloudPullY <= -PULL_SAVE) {
       if (ta.value.trim().length > 0) saveCloud();
-      else showToast("빈 구름은 저장할 수 없어요");
+      else showToast("You cannot save an empty note");
     }
   }
 }
@@ -1588,9 +1588,9 @@ function startPacket() {
   tear.cmy = mouseY;
   tear.phase = "packet";
 
-  if (tear.neat > 0.7) showToast("각 맞춰 접었어요");
-  else if (tear.neat < 0.4) showToast("대충 접었어요");
-  else showToast("무난하게 접었어요");
+  if (tear.neat > 0.7) showToast("Folded properly!");
+  else if (tear.neat < 0.4) showToast("Fold it properly;;");
+  else showToast("Not Bad");
 }
 
 function putBack() {
@@ -1724,9 +1724,9 @@ function sendDests() {
 }
 
 function sendLabel(d) {
-  if (d === "cafe") return "카페로 보내기";
-  if (d === "school") return "학교로 보내기";
-  return "집으로 보내기";
+  if (d === "cafe") return "Send to Cafe";
+  if (d === "school") return "Send to School";
+  return "Send to Home";
 }
 
 function sendMenuRect() {
@@ -1761,7 +1761,7 @@ function drawSendMenu() {
   textAlign(CENTER, CENTER);
   textStyle(BOLD);
   textSize(17);
-  text("어디로 보낼까요?", p.x + p.w / 2, p.y + 30);
+  text("Where do you want to send it to?", p.x + p.w / 2, p.y + 30);
   textStyle(NORMAL);
 
   for (let i = 0; i < 2; i++) {
@@ -1784,7 +1784,7 @@ function drawSendMenu() {
 
   fill(255, 215);
   textSize(12);
-  text("바깥을 누르면 취소돼요", width / 2, p.y + p.h + 18);
+  text("Click anywhere outside to cancel", width / 2, p.y + p.h + 18);
   pop();
 }
 
@@ -1862,7 +1862,7 @@ function drawToast() {
 
 function doSend(dest) {
   const fromPlace = current;
-    const msg = dest === "cafe" ? "카페로 보냈어요" : dest === "home" ? "집으로 보냈어요" : "학교로 보냈어요";
+    const msg = dest === "cafe" ? "Sent to Cafe" : dest === "home" ? "Sent to Home" : "Sent to School";
     if (sendMenu.source === "cloud") {
     const c = cloudSending;
     if (c) {
@@ -2784,11 +2784,11 @@ function drawSchoolClosed() {
     textAlign(CENTER, CENTER);
     textStyle(BOLD);
     textSize(constrain(bw * 0.075, 20, 28));
-    text("내일 다시 오십시오", 0, -14);
+    text("Comeback Tomorrow", 0, -14);
     textStyle(NORMAL);
     textSize(14);
     fill(35, 32, 28, 170);
-    text("운영 시간 " + nf(SCHOOL_OPEN_HOUR, 2) + ":00 – " + nf(SCHOOL_CLOSE_HOUR, 2) + ":00", 0, 28);
+    text("Open Hour " + nf(SCHOOL_OPEN_HOUR, 2) + ":00 – " + nf(SCHOOL_CLOSE_HOUR, 2) + ":00", 0, 28);
   }
   pop();
 }
@@ -3183,7 +3183,7 @@ function finishFolderSave() {
   tear.fade = 0;
   tear.packA = 1;
   folderBump = millis() + 500;
-  showToast("저장했어요 · 위로 쓸어 올리면 볼 수 있어요");
+  showToast("Saved · Slide up to see the note");
   markActive();
 }
 
@@ -3460,7 +3460,7 @@ function drawSettings() {
   fill(INK);
   textAlign(CENTER, CENTER);
   textSize(14);
-  text(current === "cafe" ? "Idle time before battery drains" : "Idle time before the screen dims",
+  text(current === "cafe" ? "Idle time before battery drains out" : "Idle time before the screen turns dark",
        p.x + p.w / 2, p.y + 28);
 
   textSize(20);
@@ -3773,7 +3773,7 @@ function drawViewer() {
     textFont(KO_FONT);
     textSize(13);
     fill(255, 215);
-    text("페이지를 왼쪽으로 밀면 " + (current === "school" ? "카페" : "학교") + "로 보낼 수 있어요", width / 2, height - 38);
+    text("Push the page to the left:  " + (current === "school" ? "cafe" : "school") + "<- sent to", width / 2, height - 38);
   }
   textFont(FONT_FAMILY);
   textSize(12);
@@ -4536,8 +4536,8 @@ function setupPointer(cnv) {
   }
 
   el.addEventListener("pointerdown", function (e) {
-    if (e.pointerType === "mouse") return;      // 마우스는 p5가 원래대로 처리
-    if (ptrId !== null) return;                 // 한 손가락만
+    if (e.pointerType === "mouse") return;
+    if (ptrId !== null) return;
     e.preventDefault();
     ptrId = e.pointerId;
     try { el.setPointerCapture(e.pointerId); } catch (err) {}
